@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pill Counter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .camera-container {
+            position: relative;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        #video, #canvas {
+            width: 100%;
+            display: block;
+            border-radius: 15px;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .count-display {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .count-label {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .count-number {
+            font-size: 4em;
+            font-weight: bold;
+            color: #4ade80;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .icon {
+            font-size: 1.5em;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .settings {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .setting-item {
+            margin-bottom: 15px;
+        }
+
+        .setting-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .setting-item input[type="range"] {
+            width: 100%;
+        }
+
+        .setting-value {
+            float: right;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💊 Pill Counter</h1>
+
+        <div class="count-display">
+            <div class="count-label">Pill Count</div>
+            <div class="count-number" id="pillCount">0</div>
+        </div>
+
+        <div class="camera-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas" class="hidden"></canvas>
+        </div>
+
+        <div class="status" id="status">Ready to count pills</div>
+
+        <div class="controls">
+            <button id="startBtn" onclick="startCamera()">
+                <span class="icon">📷</span>
+                <span>Start Camera</span>
+            </button>
+            <button id="captureBtn" onclick="captureAndCount()" disabled>
+                <span class="icon">📸</span>
+                <span>Capture</span>
+            </button>
+            <button onclick="document.getElementById('fileInput').click()">
+                <span class="icon">🖼️</span>
+                <span>Upload</span>
+            </button>
+            <button onclick="reset()">
+                <span class="icon">🔄</span>
+                <span>Reset</span>
+            </button>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
+
+        <div class="settings">
+            <h3 style="margin-bottom: 15px;">Detection Settings</h3>
+            <div class="setting-item">
+                <label>
+                    Sensitivity
+                    <span class="setting-value" id="sensitivityValue">50</span>
+                </label>
+                <input type="range" id="sensitivity" min="1" max="100" value="50" oninput="updateSensitivity(this.value)">
+            </div>
+            <div class="setting-item">
+                <label>
+                    Min Pill Size
+                    <span class="setting-value" id="minSizeValue">5</span>
+                </label>
+                <input type="range" id="minSize" min="1" max="50" value="5" oninput="updateMinSize(this.value)">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let stream = null;
+        let sensitivity = 50;
+        let minSize = 5;
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    } 
+                });
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('captureBtn').disabled = false;
+                updateStatus('Camera ready - Position pills on tray');
+            } catch (err) {
+                updateStatus('Error: Could not access camera - ' + err.message);
+                console.error(err);
+            }
+        }
+
+        function captureAndCount() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            canvas.classList.remove('hidden');
+            video.classList.add('hidden');
+            
+            countPills();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    canvas.classList.remove('hidden');
+                    video.classList.add('hidden');
+                    
+                    countPills();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function countPills() {
+            updateStatus('Counting pills...');
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // Convert to grayscale
+            const gray = new Uint8ClampedArray(canvas.width * canvas.height);
+            for (let i = 0; i < data.length; i += 4) {
+                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                gray[i / 4] = avg;
+            }
+            
+            // Apply threshold
+            const threshold = 255 - (sensitivity * 2.55);
+            const binary = new Uint8ClampedArray(gray.length);
+            for (let i = 0; i < gray.length; i++) {
+                binary[i] = gray[i] > threshold ? 255 : 0;
+            }
+            
+            // Find connected components (pills)
+            const visited = new Uint8Array(binary.length);
+            const pills = [];
+            
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const idx = y * canvas.width + x;
+                    if (binary[idx] === 255 && !visited[idx]) {
+                        const component = floodFill(binary, visited, x, y, canvas.width, canvas.height);
+                        if (component.size >= minSize) {
+                            pills.push(component);
+                        }
+                    }
+                }
+            }
+            
+            // Draw bounding boxes
+            ctx.strokeStyle = '#4ade80';
+            ctx.lineWidth = 3;
+            pills.forEach(pill => {
+                ctx.strokeRect(pill.minX, pill.minY, pill.maxX - pill.minX, pill.maxY - pill.minY);
+            });
+            
+            // Update count
+            document.getElementById('pillCount').textContent = pills.length;
+            updateStatus(`Found ${pills.length} pills`);
+        }
+
+        function floodFill(binary, visited, startX, startY, width, height) {
+            const stack = [{x: startX, y: startY}];
+            let minX = startX, maxX = startX, minY = startY, maxY = startY;
+            let size = 0;
+            
+            while (stack.length > 0) {
+                const {x, y} = stack.pop();
+                const idx = y * width + x;
+                
+                if (x < 0 || x >= width || y < 0 || y >= height || visited[idx] || binary[idx] !== 255) {
+                    continue;
+                }
+                
+                visited[idx] = 1;
+                size++;
+                
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+                
+                stack.push({x: x + 1, y});
+                stack.push({x: x - 1, y});
+                stack.push({x, y: y + 1});
+                stack.push({x, y: y - 1});
+            }
+            
+            return {minX, maxX, minY, maxY, size};
+        }
+
+        function reset() {
+            canvas.classList.add('hidden');
+            video.classList.remove('hidden');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('pillCount').textContent = '0';
+            updateStatus('Ready to count pills');
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML = message;
+        }
+
+        function updateSensitivity(value) {
+            sensitivity = value;
+            document.getElementById('sensitivityValue').textContent = value;
+        }
+
+        function updateMinSize(value) {
+            minSize = value;
+            document.getElementById('minSizeValue').textContent = value;
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>
